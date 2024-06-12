@@ -1,71 +1,62 @@
-'use strict'
+import { afterEach, mockImport, test } from 'tap'
+import { stub, restore, assert, match } from 'sinon'
+import { redactConfidentialArguments } from '../src/utils/execWithOutput.js'
 
-const tap = require('tap')
-const sinon = require('sinon')
-const proxyquire = require('proxyquire')
-const { redactConfidentialArguments } = require('../src/utils/execWithOutput')
-
-const setup = () => {
-  const execStubInner = sinon.stub()
+const setup = async () => {
+  const execStubInner = stub()
   return {
     execStub: execStubInner,
-    execWithOutputModule: proxyquire('../src/utils/execWithOutput', {
+    execWithOutputModule: await mockImport('../src/utils/execWithOutput.js', {
       '@actions/exec': {
         exec: execStubInner,
       },
     }),
   }
 }
-const { execStub, execWithOutputModule } = setup()
+const { execStub, execWithOutputModule } = await setup()
 
-tap.afterEach(() => {
-  sinon.restore()
+afterEach(() => {
+  restore()
 })
 
-tap.test(
-  'resolves with output of the exec command if exit code is 0',
-  async t => {
-    const output = 'output'
+test('resolves with output of the exec command if exit code is 0', async t => {
+  const output = 'output'
 
-    execStub.callsFake((_, __, options) => {
-      options.listeners.stdout(Buffer.from(output, 'utf8'))
+  execStub.callsFake((_, __, options) => {
+    options.listeners.stdout(Buffer.from(output, 'utf8'))
 
-      return Promise.resolve(0)
-    })
+    return Promise.resolve(0)
+  })
 
-    await t.resolves(execWithOutputModule.execWithOutput('ls', ['-al']), output)
-    sinon.assert.calledWithExactly(execStub, 'ls', ['-al'], sinon.match({}))
-  }
-)
+  await t.resolves(execWithOutputModule.execWithOutput('ls', ['-al']), output)
+  assert.calledWithExactly(execStub, 'ls', ['-al'], match({}))
+})
 
-tap.test(
-  'Throws with output of the exec command if exit code is not 0',
-  async t => {
-    const output = 'output'
+test('Throws with output of the exec command if exit code is not 0', async t => {
+  const output = 'output'
 
-    execStub.callsFake((_, __, options) => {
-      options.listeners.stderr(Buffer.from(output, 'utf8'))
-      return Promise.reject(new Error())
-    })
+  execStub.callsFake((_, __, options) => {
+    options.listeners.stderr(Buffer.from(output, 'utf8'))
+    return Promise.reject(new Error())
+  })
 
-    await t.rejects(
-      () => execWithOutputModule.execWithOutput('ls', ['-al']),
-      'Error: ls -al returned code 1  \nSTDOUT:  \nSTDERR: ${output}'
-    )
+  await t.rejects(
+    () => execWithOutputModule.execWithOutput('ls', ['-al']),
+    'Error: ls -al returned code 1  \nSTDOUT:  \nSTDERR: ${output}'
+  )
 
-    sinon.assert.calledWithExactly(execStub, 'ls', ['-al'], sinon.match({}))
-  }
-)
+  assert.calledWithExactly(execStub, 'ls', ['-al'], match({}))
+})
 
-tap.test('provides cwd to exec function', async () => {
+test('provides cwd to exec function', async () => {
   const cwd = './'
 
   execStub.resolves(0)
   await execWithOutputModule.execWithOutput('command', [], { cwd })
-  sinon.assert.calledWithExactly(execStub, 'command', [], sinon.match({ cwd }))
+  assert.calledWithExactly(execStub, 'command', [], match({ cwd }))
 })
 
-tap.test('rejects if exit code is not 0', async t => {
+test('rejects if exit code is not 0', async t => {
   const errorOutput = 'error output'
 
   execStub.callsFake((_, __, options) => {
@@ -75,16 +66,16 @@ tap.test('rejects if exit code is not 0', async t => {
   })
 
   await t.rejects(execWithOutputModule.execWithOutput('command'))
-  sinon.assert.calledWithExactly(execStub, 'command', [], sinon.match({}))
+  assert.calledWithExactly(execStub, 'command', [], match({}))
 })
 
-tap.test('passes env vars excluding `INPUT_*` env vars', async t => {
+test('passes env vars excluding `INPUT_*` env vars', async t => {
   const INPUT_NPM_TOKEN = 'some-secret-value'
   const INPUT_OPTIC_TOKEN = 'another-secret-value'
   const ACTIONS_ID_TOKEN_REQUEST_URL = 'https://example.com'
   const GITHUB_EVENT_NAME = 'someEvent'
 
-  sinon.stub(process, 'env').value({
+  stub(process, 'env').value({
     ...process.env,
     INPUT_NPM_TOKEN,
     INPUT_OPTIC_TOKEN,
@@ -93,7 +84,7 @@ tap.test('passes env vars excluding `INPUT_*` env vars', async t => {
   })
 
   // Redo setup so it gets the new env vars
-  const withEnv = setup()
+  const withEnv = await setup()
 
   withEnv.execStub.resolves(0)
   withEnv.execWithOutputModule.execWithOutput('command', [])
@@ -113,7 +104,7 @@ tap.test('passes env vars excluding `INPUT_*` env vars', async t => {
   t.hasProp(envInExec, 'NODE')
 })
 
-tap.test('Invalid arguments inputs should not fail', async t => {
+test('Invalid arguments inputs should not fail', async t => {
   const redactedBlankArray = redactConfidentialArguments([])
   const redactedUndefinedArray = redactConfidentialArguments(undefined)
   const redactedNullArray = redactConfidentialArguments(null)
@@ -127,7 +118,7 @@ tap.test('Invalid arguments inputs should not fail', async t => {
   t.equal(redactedNullArray.length, 0)
 })
 
-tap.test('Valid arguments inputs should pass', async t => {
+test('Valid arguments inputs should pass', async t => {
   const args = ['publish', '--tag', 'latest', '--access', 'public']
 
   const otp = '1827Sdys7'
@@ -216,7 +207,7 @@ tap.test('Valid arguments inputs should pass', async t => {
   )
 })
 
-tap.test('Otp should be redacted from args in case of an error', async t => {
+test('Otp should be redacted from args in case of an error', async t => {
   const args = ['publish', '--tag', 'latest', '--access', 'public']
 
   const otp = '872333'

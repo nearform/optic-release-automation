@@ -1,35 +1,32 @@
-'use strict'
+import { afterEach, mockImport, test } from 'tap'
+import { stub, restore, assert } from 'sinon'
 
-const tap = require('tap')
-const sinon = require('sinon')
-const proxyquire = require('proxyquire')
-
-const setup = () => {
-  const execWithOutputStub = sinon.stub()
-  const tagVersionProxy = proxyquire('../src/utils/tagVersion', {
-    './execWithOutput': { execWithOutput: execWithOutputStub },
+const setup = async () => {
+  const execWithOutputStub = stub()
+  const tagVersionProxy = await mockImport('../src/utils/tagVersion.js', {
+    '../src/utils/execWithOutput.js': { execWithOutput: execWithOutputStub },
   })
 
   return { execWithOutputStub, tagVersionProxy }
 }
 
-tap.afterEach(() => {
-  sinon.restore()
+afterEach(() => {
+  restore()
 })
 
-tap.test('Tag version in git', async t => {
-  const { tagVersionProxy, execWithOutputStub } = setup()
+test('Tag version in git', async t => {
+  const { tagVersionProxy, execWithOutputStub } = await setup()
   const version = 'v3.0.0'
   await tagVersionProxy.tagVersionInGit(version)
 
   t.ok(execWithOutputStub.callCount === 2)
 
-  sinon.assert.calledWithExactly(execWithOutputStub, 'git', [
+  assert.calledWithExactly(execWithOutputStub, 'git', [
     'tag',
     '-f',
     `${version}`,
   ])
-  sinon.assert.calledWithExactly(execWithOutputStub, 'git', [
+  assert.calledWithExactly(execWithOutputStub, 'git', [
     'push',
     'origin',
     '-f',

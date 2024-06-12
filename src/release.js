@@ -1,19 +1,17 @@
-'use strict'
+import { setFailed } from '@actions/core'
+import { parse } from 'semver'
 
-const core = require('@actions/core')
-const semver = require('semver')
+import { ACCESS_OPTIONS, PR_TITLE_PREFIX } from './const.js'
+import { callApi } from './utils/callApi.js'
+import { tagVersionInGit } from './utils/tagVersion.js'
+import { revertCommit } from './utils/revertCommit.js'
+import { publishToNpm } from './utils/publishToNpm.js'
+import { notifyIssues } from './utils/notifyIssues.js'
+import { logError, logInfo, logWarning } from './log.js'
+import { execWithOutput } from './utils/execWithOutput.js'
+import { getProvenanceOptions, getNpmVersion } from './utils/provenance.js'
 
-const { ACCESS_OPTIONS, PR_TITLE_PREFIX } = require('./const')
-const { callApi } = require('./utils/callApi')
-const { tagVersionInGit } = require('./utils/tagVersion')
-const { revertCommit } = require('./utils/revertCommit')
-const { publishToNpm } = require('./utils/publishToNpm')
-const { notifyIssues } = require('./utils/notifyIssues')
-const { logError, logInfo, logWarning } = require('./log')
-const { execWithOutput } = require('./utils/execWithOutput')
-const { getProvenanceOptions, getNpmVersion } = require('./utils/provenance')
-
-module.exports = async function ({ github, context, inputs }) {
+export default async function ({ github, context, inputs }) {
   logInfo('** Starting Release **')
 
   const pr = context.payload.pull_request
@@ -51,11 +49,11 @@ module.exports = async function ({ github, context, inputs }) {
     })
 
     if (!draftRelease) {
-      core.setFailed(`Couldn't find draft release to publish. Aborting.`)
+      setFailed(`Couldn't find draft release to publish. Aborting.`)
       return
     }
   } catch (err) {
-    core.setFailed(
+    setFailed(
       `Couldn't find draft release to publish. Aborting. Error: ${err.message}`
     )
     return
@@ -82,7 +80,7 @@ module.exports = async function ({ github, context, inputs }) {
       })
     } catch (reason) {
       // Verify any errors deleting the Release. Ignore minor issues deleting the branch
-      core.setFailed(
+      setFailed(
         `Something went wrong while deleting the release. \n Errors: ${reason.message}`
       )
     }
@@ -100,7 +98,7 @@ module.exports = async function ({ github, context, inputs }) {
     const access = inputs['access']
 
     if (access && !ACCESS_OPTIONS.includes(access)) {
-      core.setFailed(
+      setFailed(
         `Invalid "access" option provided ("${access}"), should be one of "${ACCESS_OPTIONS.join(
           '", "'
         )}"`
@@ -138,11 +136,11 @@ module.exports = async function ({ github, context, inputs }) {
       await revertCommit(pr.base.ref)
       logInfo('Release commit reverted.')
     }
-    core.setFailed(`Unable to publish to npm: ${err.message}`)
+    setFailed(`Unable to publish to npm: ${err.message}`)
     return
   }
 
-  const { major, minor, patch, prerelease } = semver.parse(version)
+  const { major, minor, patch, prerelease } = parse(version)
   const isPreRelease = prerelease.length > 0
 
   try {
@@ -154,7 +152,7 @@ module.exports = async function ({ github, context, inputs }) {
       await tagVersionInGit(`v${major}.${minor}.${patch}`)
     }
   } catch (err) {
-    core.setFailed(`Unable to update the semver tags ${err.message}`)
+    setFailed(`Unable to update the semver tags ${err.message}`)
   }
 
   try {
@@ -194,6 +192,6 @@ module.exports = async function ({ github, context, inputs }) {
       await revertCommit(pr.base.ref)
       logInfo('Release commit reverted.')
     }
-    core.setFailed(`Unable to publish the release ${err.message}`)
+    setFailed(`Unable to publish the release ${err.message}`)
   }
 }

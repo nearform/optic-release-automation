@@ -1,10 +1,9 @@
-'use strict'
-
-const { execWithOutput } = require('./execWithOutput')
+import { execWithOutput } from './execWithOutput.js'
 
 async function revertCommit(baseRef) {
   await execWithOutput('git', ['revert', 'HEAD'])
   await execWithOutput('git', ['push', 'origin', baseRef])
 }
 
-exports.revertCommit = revertCommit
+const _revertCommit = revertCommit
+export { _revertCommit as revertCommit }

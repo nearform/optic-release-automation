@@ -1,12 +1,10 @@
-'use strict'
+import { stat, readFile } from 'fs/promises'
+import { context, getOctokit } from '@actions/github'
+import { basename } from 'path'
+import { archiveItem } from './archiver.js'
+import { ZIP_EXTENSION } from '../const.js'
 
-const { stat, readFile } = require('fs/promises')
-const github = require('@actions/github')
-const path = require('path')
-const { archiveItem } = require('./archiver')
-const { ZIP_EXTENSION } = require('../const')
-
-const attach = async (path, releaseId, token) => {
+export const attach = async (path, releaseId, token) => {
   const filename = deriveFilename(path, ZIP_EXTENSION)
 
   /* istanbul ignore else */
@@ -26,8 +24,8 @@ const attach = async (path, releaseId, token) => {
   try {
     const data = await readFile(filename)
 
-    const { owner, repo } = github.context.repo
-    const octokit = github.getOctokit(token)
+    const { owner, repo } = context.repo
+    const octokit = getOctokit(token)
     const response = await octokit.rest.repos.uploadReleaseAsset({
       owner,
       repo,
@@ -54,7 +52,5 @@ const attach = async (path, releaseId, token) => {
 }
 
 const deriveFilename = (filePath, extension) => {
-  return path.basename(filePath) + extension
+  return basename(filePath) + extension
 }
-
-exports.attach = attach

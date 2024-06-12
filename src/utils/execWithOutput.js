@@ -1,16 +1,14 @@
-'use strict'
+import { StringDecoder } from 'node:string_decoder'
 
-const { StringDecoder } = require('node:string_decoder')
-
-const { exec } = require('@actions/exec')
-const { REDACTION_META_INFO_FOR_CONFIDENTIAL_ARGS } = require('../const')
+import { exec } from '@actions/exec'
+import { REDACTION_META_INFO_FOR_CONFIDENTIAL_ARGS } from '../const.js'
 
 /**
  *
  * @param {string[]} args
  * @returns string[] Redacted Array or Blank Array if null/undefined
  */
-function redactConfidentialArguments(args) {
+export function redactConfidentialArguments(args) {
   return (args ?? []).filter((_, index) => {
     const currentArg = args[index]?.toString().trim().toLocaleUpperCase()
     const previousArg = args[index - 1]?.toString().trim().toLocaleUpperCase()
@@ -29,7 +27,7 @@ function redactConfidentialArguments(args) {
  * @param {{cwd?: string}} options
  * @returns Promise<string>
  */
-async function execWithOutput(
+export async function execWithOutput(
   cmd,
   args,
   { cwd, silent = false, env = getFilteredEnv(), ...options } = {}
@@ -101,6 +99,3 @@ function getFilteredEnv() {
     Object.entries(process.env).filter(([key]) => !key.startsWith('INPUT_'))
   )
 }
-
-exports.execWithOutput = execWithOutput
-exports.redactConfidentialArguments = redactConfidentialArguments

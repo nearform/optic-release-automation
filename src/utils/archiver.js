@@ -1,9 +1,7 @@
-'use strict'
+import { lstat } from 'node:fs/promises'
+import AdmZip from 'adm-zip'
 
-const { lstat } = require('fs/promises')
-const AdmZip = require('adm-zip')
-
-const archiveItem = async (path, out) => {
+export const archiveItem = async (path, out) => {
   const itemIsDirectory = await isDirectory(path)
 
   const zip = new AdmZip()
@@ -32,5 +30,3 @@ const isDirectory = async path => {
     )
   }
 }
-
-exports.archiveItem = archiveItem

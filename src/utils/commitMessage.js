@@ -1,9 +1,7 @@
-'use strict'
-
-const format = require('string-format')
+import format from 'string-format'
 
 const transformCommitMessage = (template, version) => {
   return format(template.replace(/"/g, '\\"'), { version })
 }
 
-module.exports = transformCommitMessage
+export default transformCommitMessage

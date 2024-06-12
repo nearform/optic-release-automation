@@ -1,18 +1,10 @@
-'use strict'
+import openPr from './openPr.js'
+import release from './release.js'
+import { AUTO_INPUT } from './const.js'
+import { execWithOutput } from './utils/execWithOutput.js'
+import { logError, logInfo } from './log.js'
 
-const openPr = require('./openPr')
-const release = require('./release')
-const { AUTO_INPUT } = require('./const')
-const { execWithOutput } = require('./utils/execWithOutput')
-const { logError, logInfo } = require('./log')
-const util = require('util')
-const conventionalCommitsConfig = require('conventional-changelog-monorepo/conventional-changelog-conventionalcommits')
-const conventionalRecommendedBump = require('conventional-changelog-monorepo/conventional-recommended-bump')
-const conventionalRecommendedBumpAsync = util.promisify(
-  conventionalRecommendedBump
-)
-
-async function runAction({ github, context, inputs, packageVersion }) {
+export async function runAction({ github, context, inputs, packageVersion }) {
   if (context.eventName === 'workflow_dispatch') {
     return openPr({ context, inputs, packageVersion })
   }
@@ -24,7 +16,7 @@ async function runAction({ github, context, inputs, packageVersion }) {
   logError('Unsupported event')
 }
 
-async function bumpVersion({ inputs }) {
+export async function bumpVersion({ inputs }) {
   const newVersion =
     inputs.semver === AUTO_INPUT
       ? await getAutoBumpedVersion(inputs['base-tag'])
@@ -51,15 +43,14 @@ async function getAutoBumpedVersion(baseTag) {
 
   logInfo(`Using ${tag} as base release tag for version bump`)
 
-  const { releaseType = 'patch' } = await conventionalRecommendedBumpAsync({
-    baseTag: tag,
-    config: conventionalCommitsConfig,
-  })
+  const { Bumper } = await import('conventional-recommended-bump')
+
+  const bumper = new Bumper(process.cwd())
+  bumper.loadPreset('conventionalcommits')
+  bumper.tag(tag)
+
+  const { releaseType = 'patch' } = await bumper.bump()
+
   logInfo(`Auto generated release type is ${JSON.stringify(releaseType)}`)
   return releaseType
-}
-
-module.exports = {
-  runAction,
-  bumpVersion,
 }

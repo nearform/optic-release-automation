@@ -104,7 +104,7 @@ runs:
         result-encoding: string
         github-token: ${{ inputs.github-token }}
         script: |
-          const { bumpVersion } = require('${{ github.action_path }}/dist/index.js')
+          const { bumpVersion } = await import('${{ github.action_path }}/dist/index.js')
           return await bumpVersion({ inputs: ${{ toJSON(inputs) }} })
 
     - name: Build the package
@@ -121,7 +121,7 @@ runs:
       with:
         github-token: ${{ inputs.github-token }}
         script: |
-          const { runAction } = require('${{ github.action_path }}/dist/index.js')
+          const { runAction } = await import('${{ github.action_path }}/dist/index.js')
           await runAction({ github, context, inputs: ${{ toJSON(inputs) }}, packageVersion: ${{ steps.version-bump.outputs.result }} })
 
     - name: Release the package
@@ -130,5 +130,5 @@ runs:
       with:
         github-token: ${{ inputs.github-token }}
         script: |
-          const { runAction } = require('${{ github.action_path }}/dist/index.js')
+          const { runAction } = await import('${{ github.action_path }}/dist/index.js')
           await runAction({ github, context, inputs: ${{ toJSON(inputs) }} })

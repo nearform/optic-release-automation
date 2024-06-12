@@ -1,13 +1,12 @@
-'use strict'
+import { parse } from 'semver'
+import _truncate from 'lodash.truncate'
+import markdownIt from 'markdown-it'
 
-const semver = require('semver')
-const _truncate = require('lodash.truncate')
-
-const md = require('markdown-it')()
+const md = markdownIt()
 
 const PR_BODY_TRUNCATE_SIZE = 30000
 
-function getPrNumbersFromReleaseNotes(releaseNotes) {
+export function getPrNumbersFromReleaseNotes(releaseNotes) {
   const parsedReleaseNotes = md.parse(releaseNotes, {})
   const prTokens = parsedReleaseNotes.filter(token => token.type === 'inline')
 
@@ -35,12 +34,12 @@ function getPrNumbersFromReleaseNotes(releaseNotes) {
   return [...new Set(allPrNumbers)]
 }
 
-function getPRBody(
+export function getPRBody(
   template,
   { newVersion, draftRelease, inputs, author, artifact }
 ) {
   const tagsToBeUpdated = []
-  const { major, minor } = semver.parse(newVersion)
+  const { major, minor } = parse(newVersion)
 
   if (major !== 0) tagsToBeUpdated.push(`v${major}`)
   if (minor !== 0) tagsToBeUpdated.push(`v${major}.${minor}`)
@@ -74,9 +73,4 @@ function getPRBody(
   })
 
   return prBody
-}
-
-module.exports = {
-  getPrNumbersFromReleaseNotes,
-  getPRBody,
 }

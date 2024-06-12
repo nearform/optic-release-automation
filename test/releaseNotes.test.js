@@ -1,14 +1,12 @@
-'use strict'
+import { test } from 'tap'
+import _template from 'lodash.template'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 
-const { test } = require('tap')
-const _template = require('lodash.template')
-const fs = require('fs')
-const path = require('path')
-
-const {
+import {
   getPrNumbersFromReleaseNotes,
   getPRBody,
-} = require('../src/utils/releaseNotes')
+} from '../src/utils/releaseNotes.js'
 
 test('Should return the correct PR numbers', async t => {
   const testReleaseNotes = `
@@ -44,7 +42,7 @@ test('Should return the correct PR numbers', async t => {
 })
 
 test('Should return truncated PR body', async t => {
-  const tpl = fs.readFileSync(path.join(__dirname, '../src/pr.tpl'), 'utf8')
+  const tpl = readFileSync(join(import.meta.dirname, '../src/pr.tpl'), 'utf8')
 
   const testReleaseNotes = `
     ## Whats Changed\n +

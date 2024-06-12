@@ -1,7 +1,5 @@
-'use strict'
-
-const { execWithOutput } = require('./execWithOutput')
-const { getPublishedInfo, getLocalInfo } = require('./packageInfo')
+import { execWithOutput } from './execWithOutput.js'
+import { getPublishedInfo, getLocalInfo } from './packageInfo.js'
 
 async function allowNpmPublish(version) {
   // We need to check if the package was already published. This can happen if
@@ -35,7 +33,7 @@ async function allowNpmPublish(version) {
   return !packageVersionInfo
 }
 
-async function publishToNpm({
+export async function publishToNpm({
   npmToken,
   opticToken,
   opticUrl,
@@ -81,5 +79,3 @@ async function publishToNpm({
     }
   }
 }
-
-exports.publishToNpm = publishToNpm

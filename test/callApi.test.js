@@ -1,15 +1,11 @@
-'use strict'
+import { afterEach, mockImport, test } from 'tap'
+import { stub, restore, assert } from 'sinon'
 
-const tap = require('tap')
-const sinon = require('sinon')
-const proxyquire = require('proxyquire')
-const actionLog = require('../src/log')
-
-const setup = status => {
-  const logStub = sinon.stub(actionLog)
-  const fetchStub = sinon.stub()
-  const callApiProxy = proxyquire('../src/utils/callApi', {
-    '../log': logStub,
+const setup = async status => {
+  const logStub = { logError: stub(), logInfo: stub(), logWarning: stub() }
+  const fetchStub = stub()
+  const callApiProxy = await mockImport('../src/utils/callApi.js', {
+    '../src/log.js': logStub,
     'node-fetch': fetchStub.resolves({
       status,
       get json() {
@@ -20,12 +16,12 @@ const setup = status => {
   return { logStub, callApiProxy, fetchStub }
 }
 
-tap.afterEach(() => {
-  sinon.restore()
+afterEach(() => {
+  restore()
 })
 
-tap.test('Call api warns if code is not 200', async () => {
-  const { logStub, callApiProxy } = setup(401)
+test('Call api warns if code is not 200', async () => {
+  const { logStub, callApiProxy } = await setup(401)
   await callApiProxy.callApi(
     {
       endpoint: 'release',
@@ -36,11 +32,11 @@ tap.test('Call api warns if code is not 200', async () => {
       'api-url': 'whatever',
     }
   )
-  sinon.assert.calledOnce(logStub.logWarning)
+  assert.calledOnce(logStub.logWarning)
 })
 
-tap.test('Call api does not warn if code is  200', async () => {
-  const { logStub, callApiProxy } = setup(200)
+test('Call api does not warn if code is  200', async () => {
+  const { logStub, callApiProxy } = await setup(200)
   await callApiProxy.callApi(
     {
       endpoint: 'release',
@@ -49,11 +45,11 @@ tap.test('Call api does not warn if code is  200', async () => {
     },
     { 'api-url': 'whatever' }
   )
-  sinon.assert.notCalled(logStub.logWarning)
+  assert.notCalled(logStub.logWarning)
 })
 
-tap.test('Call api does not append slash to api url if present', async () => {
-  const { fetchStub, callApiProxy } = setup(200)
+test('Call api does not append slash to api url if present', async () => {
+  const { fetchStub, callApiProxy } = await setup(200)
   await callApiProxy.callApi(
     {
       endpoint: 'release',
@@ -62,11 +58,11 @@ tap.test('Call api does not append slash to api url if present', async () => {
     },
     { 'api-url': 'whatever/' }
   )
-  sinon.assert.calledWith(fetchStub, 'whatever/release')
+  assert.calledWith(fetchStub, 'whatever/release')
 })
 
-tap.test('Call api appends slash to api url if not present', async () => {
-  const { fetchStub, callApiProxy } = setup(200)
+test('Call api appends slash to api url if not present', async () => {
+  const { fetchStub, callApiProxy } = await setup(200)
   await callApiProxy.callApi(
     {
       endpoint: 'release',
@@ -75,5 +71,5 @@ tap.test('Call api appends slash to api url if not present', async () => {
     },
     { 'api-url': 'whatever' }
   )
-  sinon.assert.calledWith(fetchStub, 'whatever/release')
+  assert.calledWith(fetchStub, 'whatever/release')
 })

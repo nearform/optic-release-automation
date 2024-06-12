@@ -1,24 +1,22 @@
-'use strict'
+import { readFileSync } from 'fs'
+import { join } from 'path'
+import _template from 'lodash.template'
+import { setFailed } from '@actions/core'
 
-const fs = require('fs')
-const path = require('path')
-const _template = require('lodash.template')
-const core = require('@actions/core')
-
-const { PR_TITLE_PREFIX } = require('./const')
-const { callApi } = require('./utils/callApi')
-const transformCommitMessage = require('./utils/commitMessage')
-const { logInfo, logWarning } = require('./log')
-const { attach } = require('./utils/artifact')
-const { getPRBody } = require('./utils/releaseNotes')
-const { execWithOutput } = require('./utils/execWithOutput')
-const {
+import { PR_TITLE_PREFIX } from './const.js'
+import { callApi } from './utils/callApi.js'
+import transformCommitMessage from './utils/commitMessage.js'
+import { logInfo, logWarning } from './log.js'
+import { attach } from './utils/artifact.js'
+import { getPRBody } from './utils/releaseNotes.js'
+import { execWithOutput } from './utils/execWithOutput.js'
+import {
   generateReleaseNotes,
   fetchReleaseByTag,
   fetchLatestRelease,
-} = require('./utils/releases')
+} from './utils/releases.js'
 
-const tpl = fs.readFileSync(path.join(__dirname, 'pr.tpl'), 'utf8')
+const tpl = readFileSync(join(import.meta.dirname, 'pr.tpl'), 'utf8')
 
 const addArtifact = async (inputs, releaseId) => {
   const artifactPath = inputs['artifact-path']
@@ -82,7 +80,7 @@ const createDraftRelease = async (inputs, newVersion, releaseNotes) => {
   }
 }
 
-module.exports = async function ({ context, inputs, packageVersion }) {
+export default async function ({ context, inputs, packageVersion }) {
   logInfo('** Starting Opening Release PR **')
 
   if (!packageVersion) {
@@ -176,7 +174,7 @@ module.exports = async function ({ context, inputs, packageVersion }) {
     } catch (error) {
       message += `\n Unable to delete branch ${branchName}:  ${error.message}`
     }
-    core.setFailed(message)
+    setFailed(message)
   }
 
   logInfo('** Finished! **')

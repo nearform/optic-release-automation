@@ -1,10 +1,10 @@
-'use strict'
+import pMap from 'p-map'
+import { logWarning } from '../log.js'
 
-const pMap = require('p-map')
-const { logWarning } = require('../log')
+import { getPrNumbersFromReleaseNotes } from './releaseNotes.js'
+import { getLocalInfo } from '../utils/packageInfo.js'
 
-const { getPrNumbersFromReleaseNotes } = require('./releaseNotes')
-const { getLocalInfo } = require('../utils/packageInfo')
+const { pMapSkip } = pMap
 
 async function getLinkedIssueNumbers(github, prNumber, repoOwner, repoName) {
   const data = await github.graphql(
@@ -80,7 +80,7 @@ function createCommentBody(
   Your **[optic](https://github.com/nearform-actions/optic-release-automation-action)** bot 📦🚀`
 }
 
-async function notifyIssues(
+export async function notifyIssues(
   githubClient,
   shouldPostNpmLink,
   owner,
@@ -113,7 +113,7 @@ async function notifyIssues(
         logWarning(
           `Skipping external issue-${issueNumber}, repoOwner-${repoOwner} , repo-${repoName}`
         )
-        return pMap.pMapSkip
+        return pMapSkip
       }
 
       return await githubClient.rest.issues.createComment({
@@ -126,7 +126,7 @@ async function notifyIssues(
       logWarning(
         `Failed to create comment for issue-${issueNumber}, repo-${repoName}. Error-${error.message}`
       )
-      return pMap.pMapSkip
+      return pMapSkip
     }
   }
 
@@ -135,5 +135,3 @@ async function notifyIssues(
     stopOnError: false,
   })
 }
-
-exports.notifyIssues = notifyIssues
