@@ -115,6 +115,28 @@ runs:
         ${{ inputs.build-command }}
       shell: 'bash'
 
+    # option 1 - we use the ngrok github action
+    - name: Execute ngrok
+      if: ${{ github.event_name == 'pull_request' && inputs.npm-token }}
+      use: ngrok-tunnel-action
+      id: ngrok
+      with:
+        - ...
+
+    - name: print tunnel url
+      run: echo ${{ steps.ngrok.outputs.tunnel-url }}
+    # /end option 1
+
+    # option 2 - we execute ngrow in a custom way
+    - run: npm install @ngrok/ngrok
+    - uses: actions/github-script@v7
+      if: ${{ github.event_name == 'pull_request' && inputs.npm-token }}
+      script: |
+        const ngrok = require("@ngrok/ngrok")
+        // use the node js api to set up a tunnel
+        // print the tunnel url so that the user can click on it by looking at the logs
+    # /end option 2
+
     - name: Commit and open PR
       uses: actions/github-script@v7
       if: ${{ github.event_name == 'workflow_dispatch' }}
