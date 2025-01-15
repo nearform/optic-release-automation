@@ -8,22 +8,9 @@ const setup = ({
   packageName = 'fakeTestPkg',
   published = true,
   mockPackageInfo,
+  otpFlow = 'optic',
 } = {}) => {
   const execWithOutputStub = sinon.stub()
-  execWithOutputStub
-    .withArgs('curl', [
-      '-s',
-      '-d',
-      JSON.stringify({
-        packageInfo: { version: 'v5.1.3', name: 'fakeTestPkg' },
-      }),
-      '-H',
-      'Content-Type: application/json',
-      '-X',
-      'POST',
-      'https://optic-test.run.app/api/generate/optic-token',
-    ])
-    .returns('otp123')
 
   // npm behavior < v8.13.0
   execWithOutputStub
@@ -34,17 +21,48 @@ const setup = ({
   const getPublishedInfo = async () =>
     published ? { name: packageName } : null
 
-  const publishToNpmProxy = proxyquire('../src/utils/publishToNpm', {
-    './execWithOutput': { execWithOutput: execWithOutputStub },
+  // Conditional setup based on otpFlow
+  let proxyConfig = {
     './packageInfo': mockPackageInfo
       ? mockPackageInfo({ execWithOutputStub, getLocalInfo, getPublishedInfo })
       : {
           getLocalInfo,
           getPublishedInfo,
         },
-  })
+  }
+  if (otpFlow === 'optic') {
+    execWithOutputStub
+      .withArgs('curl', [
+        '-s',
+        '-d',
+        JSON.stringify({
+          packageInfo: { version: 'v5.1.3', name: 'fakeTestPkg' },
+        }),
+        '-H',
+        'Content-Type: application/json',
+        '-X',
+        'POST',
+        'https://optic-test.run.app/api/generate/optic-token',
+      ])
+      .returns('otp123')
+    proxyConfig['./execWithOutput'] = { execWithOutput: execWithOutputStub }
+  } else if (otpFlow === 'ngrok') {
+    // Setup for ngrok flow
+    const otpVerification = sinon.stub().resolves('ngrok123')
+    proxyConfig = {
+      ...proxyConfig,
+      './execWithOutput': { execWithOutput: execWithOutputStub },
+      './otpVerification': otpVerification,
+    }
+  }
 
-  return { execWithOutputStub, publishToNpmProxy }
+  const publishToNpmProxy = proxyquire('../src/utils/publishToNpm', proxyConfig)
+
+  return {
+    execWithOutputStub,
+    publishToNpmProxy,
+    otpVerificationStub: proxyConfig['./otpVerification'],
+  }
 }
 
 tap.afterEach(() => {
@@ -374,3 +392,96 @@ tap.test('Adds --access flag if provided as an input', async () => {
     'public',
   ])
 })
+
+tap.test('Should publish using ngrok for OTP verification', async t => {
+  const { publishToNpmProxy, execWithOutputStub, otpVerificationStub } = setup({
+    otpFlow: 'ngrok',
+  })
+
+  await publishToNpmProxy.publishToNpm({
+    npmToken: 'a-token',
+    ngrokToken: 'ngrok-token',
+    tunnelUrl: 'https://example.ngrok.io',
+    npmTag: 'latest',
+    version: 'v5.1.3',
+  })
+
+  sinon.assert.calledWithExactly(otpVerificationStub, {
+    version: 'v5.1.3',
+    name: 'fakeTestPkg',
+    tunnelUrl: 'https://example.ngrok.io',
+  })
+
+  sinon.assert.calledWithExactly(execWithOutputStub, 'npm', [
+    'publish',
+    '--otp',
+    'ngrok123',
+    '--tag',
+    'latest',
+  ])
+  t.pass('npm publish called with ngrok OTP')
+})
+
+tap.test('Should fail gracefully when ngrok services fail', async t => {
+  t.plan(1)
+  const { publishToNpmProxy, otpVerificationStub } = setup({
+    mockPackageInfo: ({ getLocalInfo, execWithOutputStub }) => ({
+      getLocalInfo,
+      getPublishedInfo: proxyquire('../src/utils/packageInfo', {
+        './execWithOutput': { execWithOutput: execWithOutputStub },
+      }).getPublishedInfo,
+    }),
+    otpFlow: 'ngrok',
+  })
+
+  // Mock failed otpVerification
+  otpVerificationStub.throws(new Error('Ngrok failed'))
+
+  try {
+    await publishToNpmProxy.publishToNpm({
+      npmToken: 'a-token',
+      ngrokToken: 'ngrok-token',
+      tunnelUrl: 'https://example.ngrok.io',
+      npmTag: 'latest',
+      version: 'v5.1.3',
+    })
+  } catch (error) {
+    t.equal(error.message, 'OTP verification failed: Ngrok failed')
+  }
+})
+
+tap.test(
+  'Should fail gracefully when fail to receive otp from optic',
+  async t => {
+    t.plan(1)
+    const { publishToNpmProxy, execWithOutputStub } = setup({
+      otpFlow: 'optic',
+    })
+
+    execWithOutputStub
+      .withArgs('curl', [
+        '-s',
+        '-d',
+        JSON.stringify({
+          packageInfo: { version: 'v5.1.3', name: 'fakeTestPkg' },
+        }),
+        '-H',
+        'Content-Type: application/json',
+        '-X',
+        'POST',
+        'https://optic-test.run.app/api/generate/optic-token',
+      ])
+      .throws(new Error('Optic failed'))
+    try {
+      await publishToNpmProxy.publishToNpm({
+        npmToken: 'a-token',
+        opticToken: 'optic-token',
+        opticUrl: 'https://optic-test.run.app/api/generate/',
+        npmTag: 'latest',
+        version: 'v5.1.3',
+      })
+    } catch (error) {
+      t.equal(error.message, 'OTP verification failed: Optic failed')
+    }
+  }
+)

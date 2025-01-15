@@ -83,6 +83,9 @@ inputs:
   access:
     description: 'If defined, sets package to public or restricted via `--access` flag on `npm publish`. Supported values are "restricted" or "public".'
     required: false
+  ngrok-token:
+    description: 'Your Ngrok Auth Token. Required only if you want to pubish to Npm and have MFA enabled for your account'
+    required: false
 
 runs:
   using: 'composite'
@@ -115,6 +118,16 @@ runs:
         ${{ inputs.build-command }}
       shell: 'bash'
 
+    - name: Execute ngrok
+      if: ${{ github.event_name == 'pull_request' && inputs.npm-token && inputs.ngrok-token }}
+      uses: msgadi/ngrok-tunnel-action@master
+      id: ngrok
+      with:
+        timeout: 5m
+        port: 3000
+        ngrok_authtoken: ${{ inputs.ngrok-token }}
+        tunnel_type: http
+
     - name: Commit and open PR
       uses: actions/github-script@v7
       if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -131,4 +144,11 @@ runs:
         github-token: ${{ inputs.github-token }}
         script: |
           const { runAction } = require('${{ github.action_path }}/dist/index.js')
-          await runAction({ github, context, inputs: ${{ toJSON(inputs) }} })
+          await runAction({ 
+          github, 
+          context, 
+          inputs: { 
+            ...${{ toJSON(inputs) }},
+            tunnelUrl: '${{ steps.ngrok.outputs.tunnel-url }}'
+           } 
+          })
